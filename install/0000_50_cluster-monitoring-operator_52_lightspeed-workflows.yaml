@@ -1,0 +1,30 @@
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OlsWorkflow
+metadata:
+  name: cmo-alert-remediation
+  namespace: openshift-lightspeed
+  annotations:
+    release.openshift.io/feature-gate: LightspeedProposals
+spec:
+  analysis:
+    agent: cmo-alert-advisor
+  execution:
+    agent: cmo-alert-advisor
+  verification:
+    agent: cmo-alert-advisor
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OlsWorkflow
+metadata:
+  name: cmo-trigger-bootstrap
+  namespace: openshift-lightspeed
+  annotations:
+    release.openshift.io/feature-gate: LightspeedProposals
+spec:
+  analysis:
+    agent: cmo-trigger-advisor
+  execution:
+    skip: true
+  verification:
+    skip: true

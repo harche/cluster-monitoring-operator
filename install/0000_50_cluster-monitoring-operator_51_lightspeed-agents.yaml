@@ -1,0 +1,170 @@
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OlsAgent
+metadata:
+  name: cmo-alert-advisor
+  namespace: openshift-lightspeed
+  annotations:
+    release.openshift.io/feature-gate: LightspeedProposals
+spec:
+  llm: smart
+  skills:
+    image: quay.io/openshift/cmo-lightspeed-skills:latest
+  systemPromptRef:
+    name: cmo-analysis-prompt
+  rawOutputSchema:
+    description: >-
+      Include structured component data about alert diagnosis and remediation.
+      You MUST include exactly one cmo_alert_diagnosis component.
+      Include one cmo_metric_evidence component for each key metric observation.
+      Include one cmo_remediation_step component for each remediation action.
+    type: array
+    minItems: 1
+    items:
+      oneOf:
+      - type: object
+        description: Root cause diagnosis for the firing alert.
+        properties:
+          type:
+            const: cmo_alert_diagnosis
+          alertName:
+            type: string
+            description: Name of the alert being diagnosed.
+          severity:
+            type: string
+            enum: ["blocker", "warning", "info"]
+          component:
+            type: string
+            enum: ["prometheus", "alertmanager", "thanos", "prometheus-operator", "node-exporter", "kube-state-metrics", "other"]
+          rootCause:
+            type: string
+            description: Detailed root cause narrative.
+          evidence:
+            type: array
+            items:
+              type: string
+            description: List of metric observations supporting the diagnosis.
+          affectedResources:
+            type: array
+            items:
+              type: string
+            description: Affected Kubernetes resources (namespace/name).
+          impact:
+            type: string
+            description: Impact of the issue on cluster observability.
+        required: ["type", "alertName", "severity", "component", "rootCause"]
+      - type: object
+        description: A key metric observation as evidence.
+        properties:
+          type:
+            const: cmo_metric_evidence
+          query:
+            type: string
+            description: PromQL query used.
+          description:
+            type: string
+            description: What this metric shows.
+          value:
+            type: string
+            description: Current metric value.
+          threshold:
+            type: string
+            description: Expected normal range.
+          status:
+            type: string
+            enum: ["critical", "warning", "normal"]
+        required: ["type", "query", "description", "value", "status"]
+      - type: object
+        description: A remediation step.
+        properties:
+          type:
+            const: cmo_remediation_step
+          order:
+            type: integer
+            description: Step order (1-based).
+          action:
+            type: string
+            description: What to do.
+          command:
+            type: string
+            description: oc/kubectl command to execute (optional).
+          verifyCommand:
+            type: string
+            description: Command to verify the step succeeded (optional).
+          risk:
+            type: string
+            enum: ["low", "medium", "high"]
+        required: ["type", "order", "action", "risk"]
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OlsAgent
+metadata:
+  name: cmo-trigger-advisor
+  namespace: openshift-lightspeed
+  annotations:
+    release.openshift.io/feature-gate: LightspeedProposals
+spec:
+  llm: smart
+  skills:
+    image: quay.io/openshift/cmo-lightspeed-skills:latest
+  systemPromptRef:
+    name: cmo-trigger-bootstrap-prompt
+  # Uses outputFields (the typed, Kubernetes-native approach) instead of
+  # rawOutputSchema. This works here because the schema is a flat object
+  # with no oneOf/conditionals. Compare with cmo-alert-advisor above,
+  # which needs rawOutputSchema for its oneOf type discriminator.
+  outputFields:
+    - name: type
+      type: string
+      description: Must be "cmo_trigger_proposal".
+      required: true
+      enum: ["cmo_trigger_proposal"]
+    - name: title
+      type: string
+      description: Short title for this option (e.g. "MemAvailable-based monitoring").
+      required: true
+    - name: alertName
+      type: string
+      description: Alert name for the PrometheusRule (e.g. "NodeMemoryUsageHigh").
+      required: true
+    - name: expr
+      type: string
+      description: The PromQL expression for the alert condition.
+      required: true
+    - name: queryTested
+      type: boolean
+      description: Must be true. Agent must run the query before proposing.
+      required: true
+    - name: queryTestResult
+      type: string
+      description: >-
+        Proof the query works. Include current values or "no data"
+        if the condition is not currently active.
+      required: true
+    - name: severity
+      type: string
+      description: Alert severity.
+      required: true
+      enum: ["warning", "critical"]
+    - name: for
+      type: string
+      description: How long the condition must hold before firing (e.g. "5m").
+      required: true
+    - name: description
+      type: string
+      description: >-
+        Human-readable description of what this alert detects.
+        Shown to the user as context for the alert rule.
+      required: true
+    - name: runbook
+      type: string
+      description: >-
+        Step-by-step guide for responding when this alert fires.
+        Include specific oc/kubectl commands and PromQL queries.
+    - name: namespace
+      type: string
+      description: Namespace for the PrometheusRule (default "openshift-monitoring").
+    - name: summary
+      type: string
+      description: Brief summary of the approach and why it was chosen.
+      required: true

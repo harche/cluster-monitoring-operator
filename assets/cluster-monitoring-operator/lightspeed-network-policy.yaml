@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app.kubernetes.io/component: operator
+    app.kubernetes.io/managed-by: cluster-monitoring-operator
+    app.kubernetes.io/name: cluster-monitoring-operator
+    app.kubernetes.io/part-of: openshift-monitoring
+  name: cluster-monitoring-operator-lightspeed
+  namespace: openshift-monitoring
+spec:
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: alertmanager
+    ports:
+    - port: 9099
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: operator
+      app.kubernetes.io/name: cluster-monitoring-operator
+  policyTypes:
+  - Ingress

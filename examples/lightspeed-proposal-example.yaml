@@ -1,0 +1,87 @@
+## Example LightspeedProposal CRs
+##
+## These show the shape of what CMO creates. You do NOT apply these manually --
+## CMO creates them automatically when lightspeed.enabled is true.
+## Use these as a reference to understand what OLS receives.
+
+---
+## Alert-driven proposal
+## Created when a built-in or included alert fires and meets the severity/duration thresholds.
+apiVersion: ols.openshift.io/v1alpha1
+kind: LightspeedProposal
+metadata:
+  name: cmo-alert-prometheusbadco-a1b2c3d4e5f6a7b8
+  namespace: openshift-lightspeed
+  labels:
+    ols.openshift.io/source: cluster-monitoring-operator
+    ols.openshift.io/alertname: prometheusbadco
+    ols.openshift.io/severity: critical
+    ols.openshift.io/dedup-key: a1b2c3d4e5f6a7b8
+spec:
+  workflow: cmo-alert-remediation
+  maxAttempts: 2
+  request: |
+    You are a monitoring specialist and SRE for OpenShift clusters. An alert
+    has fired and you need to diagnose the root cause and propose remediation.
+
+    ---
+
+    Alert: PrometheusBadConfig
+    Severity: critical
+    Namespace: openshift-monitoring
+    Pod: prometheus-k8s-0
+
+    ## Description
+
+    Prometheus has failed to reload its configuration.
+
+    ## Runbook
+
+    https://runbooks.prometheus-operator.dev/runbooks/prometheus/prometheusbadconfig
+
+    ## Alert Labels
+
+    - alertname: PrometheusBadConfig
+    - namespace: openshift-monitoring
+    - severity: critical
+    - pod: prometheus-k8s-0
+
+---
+## Custom trigger bootstrap proposal
+## Created when an admin adds a customTriggers entry in cluster-monitoring-config.
+apiVersion: ols.openshift.io/v1alpha1
+kind: LightspeedProposal
+metadata:
+  name: cmo-trigger-etcd-latency
+  namespace: openshift-lightspeed
+  labels:
+    ols.openshift.io/source: cluster-monitoring-operator
+    ols.openshift.io/proposal-type: trigger-bootstrap
+    ols.openshift.io/trigger-name: etcd-latency
+spec:
+  workflow: cmo-trigger-bootstrap
+  maxAttempts: 2
+  request: |
+    You are a monitoring specialist. A cluster admin wants to create a new
+    alert rule from a plain English description. Your job is to translate
+    the intent into tested PromQL and a PrometheusRule CR.
+
+    ---
+
+    ## Custom Trigger Bootstrap
+
+    Trigger name: etcd-latency
+
+    ## User Intent
+
+    Alert when etcd fsync latency p99 exceeds 100ms for 10 minutes.
+    This typically indicates disk pressure on the control plane nodes.
+    Remediation should check disk I/O and suggest node scaling.
+
+    ## Instructions
+
+    1. Discover relevant Prometheus metrics for this intent.
+    2. Write one or more PromQL expressions that detect the condition.
+    3. Propose multiple remediation approaches as options.
+    4. For each option, include the PrometheusRule YAML and remediation strategy.
+    5. After the user selects an option, create the PrometheusRule CR in openshift-monitoring.

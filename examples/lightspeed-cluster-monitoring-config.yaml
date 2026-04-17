@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-monitoring-config
+  namespace: openshift-monitoring
+data:
+  config.yaml: |
+    # Existing CMO configuration (unchanged)
+    prometheusK8s:
+      retention: 24h
+      resources:
+        requests:
+          cpu: 200m
+          memory: 2Gi
+    alertmanagerMain:
+      resources:
+        requests:
+          cpu: 20m
+          memory: 50Mi
+
+    # --- Lightspeed proposal integration ---
+    lightspeed:
+      enabled: true
+
+      alertProposals:
+        # Minimum severity to trigger a proposal: "warning" (default) or "critical"
+        minSeverity: warning
+        # How long an alert must fire before a proposal is created (default: 5m)
+        minFiringDuration: 5m
+        # Add any Prometheus alert name — it doesn't have to be CMO-managed.
+        # When the alert fires, AlertManager pushes it to CMO's webhook,
+        # and CMO creates a LightspeedProposal for the agent to investigate.
+        includeAlerts:
+          - KubePodCrashLooping
+          - EtcdHighCommitDurations
+        # Remove built-in alerts you don't want proposals for
+        excludeAlerts:
+          - PrometheusHighQueryLoad
+
+      # Custom triggers: describe a monitoring condition in plain English.
+      # CMO creates a bootstrap proposal; the AI agent translates it into
+      # a PrometheusRule with tested PromQL and a runbook.
+      customTriggers:
+        - name: etcd-latency
+          intent: >-
+            Alert when etcd fsync latency p99 exceeds 100ms for 10 minutes.
+            This typically indicates disk pressure on the control plane nodes.
+            Remediation should check disk I/O and suggest node scaling.
+        - name: api-error-budget
+          intent: >-
+            Track the error budget for the Kubernetes API server.
+            Alert when the remaining budget drops below 20% over a 30-day window.
+            Use a multi-window, multi-burn-rate approach.

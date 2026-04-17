@@ -247,6 +247,7 @@ func Main() int {
 		telemetryConfig.Matches,
 		assets,
 		cancel,
+		config,
 	)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)

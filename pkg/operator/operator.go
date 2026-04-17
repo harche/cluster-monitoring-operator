@@ -38,6 +38,7 @@ import (
 	apiutilerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/informers"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/klog/v2"
@@ -46,6 +47,7 @@ import (
 	"github.com/openshift/cluster-monitoring-operator/pkg/client"
 	"github.com/openshift/cluster-monitoring-operator/pkg/manifests"
 	"github.com/openshift/cluster-monitoring-operator/pkg/metrics"
+	"github.com/openshift/cluster-monitoring-operator/pkg/proposal"
 	"github.com/openshift/cluster-monitoring-operator/pkg/tasks"
 )
 
@@ -199,6 +201,10 @@ type Operator struct {
 
 	ruleController    *alert.RuleController
 	relabelController *alert.RelabelConfigController
+
+	proposalCreator   *proposal.Creator
+	lightspeedHandler *lightspeedWebhookHandler
+	lightspeedEnabled bool
 }
 
 func New(
@@ -211,6 +217,7 @@ func New(
 	telemetryMatches []string,
 	a *manifests.Assets,
 	cancel func(),
+	restConfig *rest.Config,
 ) (*Operator, error) {
 	ruleController, err := alert.NewRuleController(ctx, c, version)
 	if err != nil {
@@ -243,6 +250,10 @@ func New(
 		controllersToRunFunc: make([]func(context.Context, int), 0),
 		ruleController:       ruleController,
 		relabelController:    relabelController,
+	}
+
+	if restConfig != nil && o.shouldCreateLightspeedProposals() {
+		o.initLightspeed(restConfig)
 	}
 
 	// Watch secrets in the openshift-monitoring namespace.
@@ -605,6 +616,10 @@ func (o *Operator) Run(ctx context.Context) error {
 		go r(ctx, 1)
 	}
 
+	if o.lightspeedEnabled {
+		o.startLightspeedWebhook()
+	}
+
 	go o.worker(ctx)
 
 	ticker := time.NewTicker(reconciliationPeriod)
@@ -786,6 +801,10 @@ func (o *Operator) sync(ctx context.Context) error {
 	config.SetImages(o.images)
 	config.SetTelemetryMatches(o.telemetryMatches)
 	config.SetRemoteWrite(o.remoteWrite)
+
+	if o.lightspeedEnabled {
+		o.updateLightspeedConfig(config.ClusterMonitoringConfiguration)
+	}
 
 	var proxyConfig = getProxyReader(ctx, config, o.loadProxyConfig)
 

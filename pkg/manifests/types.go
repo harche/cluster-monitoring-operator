@@ -85,6 +85,8 @@ type ClusterMonitoringConfiguration struct {
 	NodeExporterConfig NodeExporterConfig `json:"nodeExporter,omitempty"`
 	// `MonitoringPluginConfig` defines settings for the monitoring `console-plugin`.
 	MonitoringPluginConfig *MonitoringPluginConfig `json:"monitoringPlugin,omitempty"`
+	// `LightspeedConfig` defines settings for OpenShift Lightspeed proposal integration.
+	LightspeedConfig *LightspeedConfig `json:"lightspeed,omitempty"`
 }
 
 // The `UserWorkloadConfig` resource defines settings for the monitoring of
@@ -883,3 +885,55 @@ type TLSConfig struct {
 	// certificate and name.
 	InsecureSkipVerify bool `json:"insecureSkipVerify"`
 }
+
+// The `LightspeedConfig` resource defines settings for OpenShift Lightspeed
+// proposal integration. When enabled, the Cluster Monitoring Operator creates
+// LightspeedProposal CRs for persistent alerts and monitoring health issues.
+type LightspeedConfig struct {
+	// `enabled` controls whether Lightspeed proposal integration is active.
+	// Default is `false`.
+	Enabled bool `json:"enabled,omitempty"`
+	// `alertProposals` defines settings for alert-driven proposals.
+	AlertProposals *AlertProposalConfig `json:"alertProposals,omitempty"`
+	// `customTriggers` defines intent-based triggers. Each trigger describes
+	// a monitoring condition in plain English. The AI agent translates the
+	// intent into a PrometheusRule during analysis. Once the user approves,
+	// the agent creates the rule and AlertManager route, turning the intent
+	// into a permanent, self-sustaining alert.
+	CustomTriggers []CustomTrigger `json:"customTriggers,omitempty"`
+}
+
+// The `AlertProposalConfig` resource defines settings for alert-driven proposals.
+type AlertProposalConfig struct {
+	// `enabled` controls whether alert-driven proposals are created.
+	// Default is `true` when lightspeed is enabled.
+	Enabled *bool `json:"enabled,omitempty"`
+	// `minSeverity` is the minimum alert severity to trigger a proposal.
+	// Valid values are "critical" and "warning". Default is "warning".
+	MinSeverity string `json:"minSeverity,omitempty"`
+	// `minFiringDuration` is the minimum duration an alert must be firing
+	// before a proposal is created. Default is "5m".
+	MinFiringDuration string `json:"minFiringDuration,omitempty"`
+	// `includeAlerts` adds alert names to the default eligible set.
+	// Use this to trigger proposals for alerts beyond the built-in list.
+	IncludeAlerts []string `json:"includeAlerts,omitempty"`
+	// `excludeAlerts` removes alert names from the default eligible set.
+	// Use this to prevent proposals for specific built-in alerts.
+	ExcludeAlerts []string `json:"excludeAlerts,omitempty"`
+}
+
+// The `CustomTrigger` resource defines an intent-based monitoring trigger.
+// The AI agent translates the plain English intent into a PrometheusRule
+// and AlertManager route during the proposal lifecycle.
+type CustomTrigger struct {
+	// `name` is a unique identifier for this trigger. Used in proposal naming.
+	Name string `json:"name"`
+	// `intent` is a plain English description of the monitoring condition
+	// and desired remediation. The AI agent uses this to discover relevant
+	// metrics, write PromQL, and propose solutions.
+	Intent string `json:"intent"`
+	// `workflow` is the OlsWorkflow to use for the bootstrap proposal.
+	// Default is "cmo-trigger-bootstrap".
+	Workflow string `json:"workflow,omitempty"`
+}
+

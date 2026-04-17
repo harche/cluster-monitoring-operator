@@ -1,0 +1,139 @@
+## Stub CRD for testing LightspeedProposal creation without a full OLS deployment.
+## Apply this to a cluster, then enable lightspeed in cluster-monitoring-config
+## to verify CMO creates proposals correctly.
+##
+## This is a minimal subset of the real OLS CRD (ols.openshift.io_lightspeedproposals.yaml).
+## It includes only the fields CMO writes. The real CRD has a much richer status
+## with per-step tracking, remediation options, RBAC, and verification results.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: lightspeedproposals.ols.openshift.io
+spec:
+  group: ols.openshift.io
+  names:
+    kind: LightspeedProposal
+    listKind: LightspeedProposalList
+    plural: lightspeedproposals
+    singular: lightspeedproposal
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - jsonPath: .spec.workflow
+          name: Workflow
+          type: string
+        - jsonPath: .status.phase
+          name: Phase
+          type: string
+        - jsonPath: .metadata.creationTimestamp
+          name: Age
+          type: date
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - request
+                - workflow
+              properties:
+                request:
+                  description: The user's original request or a description of what triggered this proposal.
+                  type: string
+                  minLength: 1
+                workflow:
+                  description: The name of an OlsWorkflow CR that defines which agents handle each step.
+                  type: string
+                  minLength: 1
+                maxAttempts:
+                  description: Overrides the global retry limit.
+                  type: integer
+                  minimum: 0
+                  maximum: 20
+                parentRef:
+                  description: References the parent proposal for escalation chains.
+                  type: string
+                targetNamespaces:
+                  description: The namespace(s) this proposal operates on.
+                  type: array
+                  items:
+                    type: string
+                workflowOverride:
+                  description: Per-proposal overrides of the referenced workflow.
+                  type: object
+                  properties:
+                    analysis:
+                      type: object
+                      properties:
+                        skip:
+                          type: boolean
+                        agent:
+                          type: string
+                    execution:
+                      type: object
+                      properties:
+                        skip:
+                          type: boolean
+                        agent:
+                          type: string
+                    verification:
+                      type: object
+                      properties:
+                        skip:
+                          type: boolean
+                        agent:
+                          type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  description: Current phase of the proposal lifecycle.
+                  type: string
+                  default: Pending
+                  enum:
+                    - Pending
+                    - Analyzing
+                    - Proposed
+                    - Approved
+                    - Denied
+                    - Executing
+                    - AwaitingSync
+                    - Verifying
+                    - Completed
+                    - Failed
+                    - Escalated
+                attempt:
+                  description: Current attempt number (1-based).
+                  type: integer
+                conditions:
+                  description: Latest available observations about the proposal.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                      status:
+                        type: string
+                        enum: ["True", "False", "Unknown"]
+                      reason:
+                        type: string
+                      message:
+                        type: string
+                      lastTransitionTime:
+                        type: string
+                        format: date-time
+                    required:
+                      - type
+                      - status
+                      - reason
+                      - message
+                      - lastTransitionTime
+      subresources:
+        status: {}
